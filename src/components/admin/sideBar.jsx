@@ -62,11 +62,6 @@ const SideBar = () => {
             icon: <HeartOutlined />,
             label: <Link to="/stock/receiver">Blood Receiver</Link>,
         },
-        {
-            key: "/stock/blood-drop",
-            icon: <ExperimentOutlined />,
-            label: <Link to="/stock/blood-drop">Blood Drop</Link>,
-        },
     ]
 
         // --- STAFF ---

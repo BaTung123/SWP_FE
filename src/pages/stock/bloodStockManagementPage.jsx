@@ -8,13 +8,18 @@ import { getAllBloodDonationApplication } from '../../services/donorRegistration
 import { GetAllBloodImportApplication } from '../../services/bloodImport';
 import { toast } from 'react-toastify';
 import dayjs from 'dayjs';
+import { GetAllBloodBagWithBloodType } from '../../services/bloodBag';
 
 const bloodTypeList = [
-  'O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+', 'Chưa biết'
+  'O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+'
 ];
 
 const bloodTransferTypes = [
   'Toàn Phần', 'Hồng Cầu', 'Huyết Tương', 'Tiểu Cầu'
+];
+
+const statusListForBag = [
+  'Chưa Dùng', 'Đã Dùng', 'Hết Hạn'
 ];
 
 const statusList = [
@@ -82,11 +87,26 @@ const BloodStockManagementPage = () => {
 
 
   const fetchBloodStorage = async () => {
-    const bloodStorageRes = await GetAllBlood();
-    console.log("bloodStorageRes", bloodStorageRes)
-    setOriginalList(bloodStorageRes.data.bloodStorages.map(item => ({ ...item, status: getStatus(item.quantity) })))
-    setFiltered(bloodStorageRes.data.bloodStorages.map(item => ({ ...item, status: getStatus(item.quantity) })))
+    const bloodBagList = (
+      bloodTypeList.map(async (type, index) => {
+        console.log("type:", bloodTypeList.indexOf(type))
+        const res = await GetAllBloodBagWithBloodType(bloodTypeList.indexOf(type));
+        console.log("res:", res)
+        const importedBags = res.filter(bag => bag.status === 0);
+        console.log("importedBags:", importedBags)
+        const totalQuantity = importedBags.reduce((sum, bag) => sum + bag.quantity, 0);
+        console.log("totalQuantity:", totalQuantity)
+
+        return {
+          bloodType: type,
+          quantity: totalQuantity,
+          status: totalQuantity > 0 ? 'Enough' : 'Not Enough',
+        };
+      })
+    )
+    setFiltered(await Promise.all(bloodBagList));
   }
+  
   useEffect(() => {
     fetchBloodStorage();
   }, [])
@@ -99,23 +119,33 @@ const BloodStockManagementPage = () => {
   // Hàm lấy dữ liệu chi tiết theo nhóm máu
   const fetchDetailData = async (bloodTypeIndex) => {
     try {
+      const bloodBagListRes = await GetAllBloodBagWithBloodType(bloodTypeIndex);
+      console.log("bloodBagListRes:", bloodBagListRes)
       const donateListRes = await getAllBloodDonationApplication();
-      const importListRes = await GetAllBloodImportApplication();
-      const importList = importListRes.data.bloodImports;
+      console.log("donateListRes:", donateListRes)
       
       // Lọc dữ liệu theo nhóm máu và chỉ lấy những đơn có bloodImportApplication
-      const filteredData = donateListRes
-        .filter(donate => {
-          return donate.bloodType === bloodTypeIndex && 
-                 importList.some(importItem => importItem.bloodDonationApplicationId === donate.id);
+      const filteredData = bloodBagListRes
+        .filter(bloodBag => {
+          return bloodBag.bloodType === bloodTypeIndex && 
+                 donateListRes.some(donate => donate.bloodBagId === bloodBag.id);
         })
-        .map(donate => ({
-          ...donate,
-          bloodTransferType: bloodTransferTypes[donate.bloodTransferType],
-          bloodType: bloodTypeList[donate.bloodType],
-          status: statusList[donate.status]
-        }));
+        .map(bag => {
+          const donate = donateListRes.find(d => d.bloodBagId === bag.id);
+          console.log("donate:", donate)
+          console.log("bag:", bag)
 
+          return {
+            bloodBagId: bag.id,
+            fullName: donate.fullName,
+            bagNumber: bag.bagNumber,
+            bloodType: bloodTypeList[bag.bloodType],
+            bloodTransferType: bloodTransferTypes[donate.bloodTransferType],
+            quantity: bag.quantity,
+            collectionDate: bag.collectionDate,
+            status: statusListForBag[bag.status]
+          }
+        });
       setDetailData(filteredData);
       setSelectedBloodType(bloodTypeIndex);
       setIsDetailModalOpen(true);
@@ -138,6 +168,8 @@ const BloodStockManagementPage = () => {
   const handleDetailTransferTypeFilter = (transferType) => {
     setDetailFilterTransferType(transferType);
   };
+
+  console.log("detailData:", detailData)
 
   // Dữ liệu đã filter cho modal chi tiết
   const filteredDetailData = detailData.filter(r => {
@@ -258,7 +290,7 @@ const BloodStockManagementPage = () => {
       key: 'bloodType',
       align: 'center',
       width: 120,
-      render: (bloodType) => <span className="font-bold">{bloodTypeList[bloodType]}</span>
+      render: (bloodType) => <span className="font-bold">{bloodType}</span>
     },
     {
       title: 'Số lượng (ml)',
@@ -294,17 +326,12 @@ const BloodStockManagementPage = () => {
       width: 200,
       render: (_, record) => (
         <span className="flex items-center justify-center gap-2">
-          <Tooltip title="Sửa">
-            <Button type="dashed" variant="dashed" color="cyan" onClick={() => handleEdit(record)}>
-              <EditOutlined />
-            </Button>
-          </Tooltip>
           <Tooltip title="Xem chi tiết">
             <Button 
               type="dashed" 
               variant="dashed" 
               color="blue" 
-              onClick={() => fetchDetailData(record.bloodType)}
+              onClick={() => fetchDetailData(bloodTypeList.indexOf(record.bloodType))}
             >
               <DownOutlined />
             </Button>
@@ -359,7 +386,7 @@ const BloodStockManagementPage = () => {
         className="rounded-2xl shadow-lg bg-white custom-ant-table"
         dataSource={filtered}
         columns={columns}
-                 rowKey={(record, idx) => record.id || `${record.bloodType}-${record.quantity}`}
+        // rowKey={(record) => record.bloodType}
         pagination={{
           pageSize: 8,
           position: ['bottomCenter'],
@@ -447,7 +474,7 @@ const BloodStockManagementPage = () => {
                 onChange={e => handleDetailStatusFilter(e.target.value)}
               >
                 <option value="">Tất cả trạng thái</option>
-                {statusList.map(status => (
+                {statusListForBag.map(status => (
                   <option key={status} value={status}>{status}</option>
                 ))}
               </select>
@@ -486,6 +513,13 @@ const BloodStockManagementPage = () => {
               width: 140,
             },
             {
+              title: 'Mã túi máu',
+              dataIndex: 'bagNumber',
+              key: 'bagNumber',
+              align: 'center',
+              width: 120,
+            },
+            {
               title: 'Nhóm máu',
               dataIndex: 'bloodType',
               key: 'bloodType',
@@ -508,9 +542,9 @@ const BloodStockManagementPage = () => {
               width: 120,
             },
             {
-              title: 'Thời gian',
-              dataIndex: 'donationEndDate',
-              key: 'donationEndDate',
+              title: 'Ngày thu thập',
+              dataIndex: 'collectionDate',
+              key: 'collectionDate',
               align: 'center',
               width: 160,
               render: (date) => dayjs(date).format("DD-MM-YYYY")
@@ -537,26 +571,7 @@ const BloodStockManagementPage = () => {
                  );
                },
              },
-             {
-               title: 'Thao tác',
-               key: 'actions',
-               align: 'center',
-               width: 120,
-               render: (_, record) => (
-                 <span className="flex items-center justify-center gap-2">
-                   <Tooltip title="Xem chi tiết">
-                     <Button 
-                       type="dashed" 
-                       variant="dashed" 
-                       color="green" 
-                       size="small"
-                     >
-                       <SearchOutlined />
-                     </Button>
-                   </Tooltip>
-                 </span>
-               ),
-             },
+             
           ]}
           rowKey={(record) => record.id}
           pagination={{

@@ -209,11 +209,12 @@ const SendBloodPage = () => {
 
     try {
       const createBloodRequestRes = await CreateBloodRequestStatus(bloodRequestData);
-      const createBloodExpObj = {
-        bloodRequestApplicationId: createBloodRequestRes.data.id,
-        note: createBloodRequestRes.data.note
-      }
-      await CreateBloodExportApplication(createBloodExpObj);
+      console.log("createBloodRequestRes:", createBloodRequestRes);
+      // const createBloodExpObj = {
+      //   bloodRequestApplicationId: createBloodRequestRes.data.id,
+      //   note: createBloodRequestRes.data.note
+      // }
+      // await CreateBloodExportApplication(createBloodExpObj);
       setIsRequestModalOpen(false);
       setRequestForm(initialRequestForm);
       setNeededTimeType('gap');

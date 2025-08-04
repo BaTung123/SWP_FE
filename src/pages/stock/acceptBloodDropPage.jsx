@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Table, Input, Button, Tooltip, Modal, Select } from 'antd';
+import { Table, Input, Button, Tooltip, Modal, Select, DatePicker } from 'antd';
 import { SearchOutlined, EditOutlined, DeleteOutlined, DownOutlined } from '@ant-design/icons';
 import { GetAllBloodRequestApplication, UpdateBloodRequestStatus } from '../../services/bloodRequestApplication';
 import { getAllBloodDonationApplication } from '../../services/donorRegistration';
 import { GetAllBloodImportApplication } from '../../services/bloodImport';
 import dayjs from 'dayjs';
+import { GetAllBloodBagWithBloodType, GetBloodBagById } from '../../services/bloodBag';
+import { CreateBloodExportApplication, updateBloodExportApplication } from '../../services/bloodExport';
 
 const bloodTypes = [
   'O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+', 'Chưa biết'
@@ -12,6 +14,10 @@ const bloodTypes = [
 
 const statusList = [
   'Đang Chờ', 'Chấp Nhận', 'Đã Xuất', 'Từ Chối'
+];
+
+const statusListForBag = [
+  'Chưa Dùng', 'Đã Dùng', 'Hết Hạn'
 ];
 
 const bloodTransferTypes = [
@@ -31,9 +37,11 @@ const AcceptBloodDropPage = () => {
   const [filterTransferType, setFilterTransferType] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
-  const [newStatus, setNewStatus] = useState('Đang chờ');
+  const [bloodBag, setBloodBag] = useState(null);
+  // const [newStatus, setNewStatus] = useState('Đang chờ');
   const [rejectReason, setRejectReason] = useState('');
   const [detailModal, setDetailModal] = useState({ open: false, reason: '' });
+  const [dataRequestApplication, setDataRequestApplication] = useState(null);
 
   // State cho modal chi tiết theo nhóm máu
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -64,32 +72,45 @@ const AcceptBloodDropPage = () => {
     fetchRequestList()
   }, [])
 
+  const handleDetailModalOpen = (record) => {
+    console.log("record:", record);
+    fetchDetailData(bloodTypes.indexOf(record.bloodType), record);
+    setIsDetailModalOpen(true);
+  }
+
   // Hàm lấy dữ liệu chi tiết theo nhóm máu
-  const fetchDetailData = async (bloodTypeIndex) => {
+  const fetchDetailData = async (bloodTypeIndex, requestObj) => {
     try {
       // Lấy danh sách đơn hiến máu đã thành công
+      const bloodBagListRes = await GetAllBloodBagWithBloodType(bloodTypeIndex);
+      console.log("bloodBagListRes:", bloodBagListRes)
       const donateListRes = await getAllBloodDonationApplication();
-      const importListRes = await GetAllBloodImportApplication();
-      const importList = importListRes.data.bloodImports;
-      
-      console.log('bloodTypeIndex:', bloodTypeIndex);
-      console.log('bloodTypeName:', bloodTypes[bloodTypeIndex]);
-      console.log('donateListRes:', donateListRes);
-      console.log('importList:', importList);
+      console.log("donateListRes:", donateListRes)
       
       // Lọc dữ liệu theo nhóm máu và chỉ lấy những đơn hiến máu đã thành công (có bloodImportApplication)
-      const filteredData = donateListRes
-        .filter(donate => {
-          console.log('donate.bloodType:', donate.bloodType, 'bloodTypeIndex:', bloodTypeIndex);
-          return donate.bloodType === bloodTypeIndex && 
-                 importList.some(importItem => importItem.bloodDonationApplicationId === donate.id);
+      const filteredData = bloodBagListRes
+        .filter(bloodBag => {
+          return bloodBag.bloodType === bloodTypeIndex && 
+                 donateListRes.some(donate => donate.bloodBagId === bloodBag.id && donate.bloodTransferType === bloodTransferTypes.indexOf(requestObj.bloodTransferType));
         })
-        .map(donate => ({
-          ...donate,
-          bloodTransferType: bloodTransferTypes[donate.bloodTransferType],
-          bloodType: bloodTypes[donate.bloodType],
-          status: statusList[donate.status]
-        }));
+        .map(bag => {
+          const donate = donateListRes.find(d => d.bloodBagId === bag.id);
+          console.log("donate:", donate)
+          console.log("bag:", bag)
+          console.log("requestId:", requestObj.id)
+
+          return {
+            bloodBagId: bag.id,
+            bloodRequestApplicationId: requestObj.id,
+            fullName: donate.fullName,
+            bagNumber: bag.bagNumber,
+            bloodType: bloodTypes[bag.bloodType],
+            bloodTransferType: bloodTransferTypes[donate.bloodTransferType],
+            quantity: bag.quantity,
+            collectionDate: bag.collectionDate,
+            status: statusListForBag[bag.status]
+          }
+        })
 
       console.log('filteredData:', filteredData);
       
@@ -136,6 +157,7 @@ const AcceptBloodDropPage = () => {
     setDetailSearch("");
     setDetailFilterStatus("");
     setDetailFilterTransferType("");
+    fetchRequestList();
   };
 
   // Filtered data for display only
@@ -163,11 +185,67 @@ const AcceptBloodDropPage = () => {
     setFilterTransferType(transferType);
   };
 
-  const handleEdit = (record) => {
+  const handleEdit = async (record) => {
+    console.log("record:", record)
+    const bloodBagRes = await GetBloodBagById(record.bloodBagId)
+    console.log("bloodBagRes:", bloodBagRes)
+    setBloodBag(bloodBagRes);
     setEditingRecord(record);
-    setNewStatus(record.status);
-    setRejectReason(record.rejectReason || '');
     setIsModalOpen(true);
+  };
+
+  const handleExport = async (record) => {
+    console.log("handleExport record:", record);
+    const exportDataCreate = {
+      bloodRequestApplicationId: record.bloodRequestApplicationId,
+      bloodBagId: record.bloodBagId,
+      note: ""
+    };
+    console.log("exportDataCreate:", exportDataCreate);
+    const createExportRes = await CreateBloodExportApplication(exportDataCreate);
+    console.log("createExportRes:", createExportRes);
+
+    if (createExportRes.code === 201) {
+      const exportDataUpdate = {
+        id: createExportRes.data.id,
+        status: 2,
+        note: ""
+      }
+      const updateExportRes = await updateBloodExportApplication(exportDataUpdate);
+      console.log("updateExportRes:", updateExportRes);
+
+      if (updateExportRes.code === 200) {
+        const bloodBagListRes = await GetAllBloodBagWithBloodType(bloodTypes.indexOf(record.bloodType));
+        console.log("bloodBagListRes:", bloodBagListRes)
+        const donateListRes = await getAllBloodDonationApplication();
+        console.log("donateListRes:", donateListRes)
+
+        const filteredData = bloodBagListRes
+          .filter(bloodBag => {
+            return bloodBag.bloodType === bloodTypes.indexOf(record.bloodType) &&
+              donateListRes.some(donate => donate.bloodBagId === bloodBag.id && donate.bloodTransferType === bloodTransferTypes.indexOf(record.bloodTransferType));
+          })
+          .map(bag => {
+            const donate = donateListRes.find(d => d.bloodBagId === bag.id);
+            console.log("donate:", donate)
+            console.log("bag:", bag)
+            console.log("requestId:", record.bloodRequestApplicationId)
+
+            return {
+              bloodBagId: bag.id,
+              bloodRequestApplicationId: record.bloodRequestApplicationId,
+              fullName: donate.fullName,
+              bagNumber: bag.bagNumber,
+              bloodType: bloodTypes[bag.bloodType],
+              bloodTransferType: bloodTransferTypes[donate.bloodTransferType],
+              quantity: bag.quantity,
+              collectionDate: bag.collectionDate,
+              status: statusListForBag[bag.status]
+            }
+          })
+        setDetailData(filteredData);
+      }
+    }
   };
 
   const handleModalOk = async () => {
@@ -276,34 +354,38 @@ const AcceptBloodDropPage = () => {
       align: 'center',
       width: 220,
       render: (_, record) => {
-        if (record.status === "Đã Xuất" || record.status === "Từ Chối")
-          return;
-
-        return (
-          <span className="flex items-center justify-center gap-2">
-            <Tooltip title="Sửa">
+        if (record.status === "Đã Xuất" || record.status === "Từ Chối") {
+          return (
+            <Tooltip title="Xem">
               <Button type="dashed" variant="dashed" color="cyan" onClick={() => handleEdit(record)}>
                 <EditOutlined />
               </Button>
             </Tooltip>
-                         <Tooltip title="Xem chi tiết">
-               <Button 
-                 type="dashed" 
-                 variant="dashed" 
-                 color="blue" 
-                 onClick={() => {
-                   // Tìm index của nhóm máu từ tên nhóm máu
-                   const bloodTypeIndex = bloodTypes.indexOf(record.bloodType);
-                   if (bloodTypeIndex !== -1) {
-                     fetchDetailData(bloodTypeIndex);
-                   } else {
-                     console.error('Không tìm thấy nhóm máu:', record.bloodType);
-                   }
-                 }}
-               >
-                 <DownOutlined />
-               </Button>
-             </Tooltip>
+          )
+        }
+
+        return (
+          <span className="flex items-center justify-center gap-2">
+            
+            <Tooltip title="Xem chi tiết">
+              <Button
+                type="dashed"
+                variant="dashed"
+                color="blue"
+                onClick={() => {
+                  // Tìm index của nhóm máu từ tên nhóm máu
+                  const bloodTypeIndex = bloodTypes.indexOf(record.bloodType);
+                  if (bloodTypeIndex !== -1) {
+                    console.log("record:", record);
+                    handleDetailModalOpen(record);
+                  } else {
+                    console.error('Không tìm thấy nhóm máu:', record.bloodType);
+                  }
+                }}
+              >
+                <DownOutlined />
+              </Button>
+            </Tooltip>
           </span>
         )
       },
@@ -323,6 +405,9 @@ const AcceptBloodDropPage = () => {
     }
     return '';
   }
+
+  console.log("editingRecord:", editingRecord)
+  console.log("bloodBag:", bloodBag)
 
   return (
     <div className="flex flex-col">
@@ -348,7 +433,7 @@ const AcceptBloodDropPage = () => {
             onChange={e => handleStatusFilter(e.target.value)}
           >
             <option value="">Tất cả trạng thái</option>
-            <option value="Đang chờ">Đang chờ</option>
+            <option value="Đang Chờ">Đang chờ</option>
             <option value="Đã duyệt">Đã duyệt</option>
             <option value="Từ chối">Từ chối</option>
           </select>
@@ -390,31 +475,43 @@ const AcceptBloodDropPage = () => {
         locale={{ emptyText: 'Không có dữ liệu' }}
       />
       <Modal
-        title="Chỉnh sửa trạng thái"
+        title="Chi tiết túi máu"
         open={isModalOpen}
-        onOk={handleModalOk}
         onCancel={handleModalCancel}
-        okText="Lưu"
-        cancelText="Huỷ"
+        footer={null}
       >
-        <div className="mb-2">Chọn trạng thái mới:</div>
-        <Select
-          className="w-full"
-          value={newStatus}
-          onChange={value => setNewStatus(value)}
-          options={statusOptions}
-        />
-        {newStatus === 'Từ Chối' && (
-          <div className="mt-4">
-            <label className="block font-semibold mb-1">Lý do từ chối:</label>
-            <Input.TextArea
-              value={rejectReason}
-              onChange={e => setRejectReason(e.target.value)}
-              placeholder="Nhập lý do từ chối..."
-              rows={3}
-            />
-          </div>
-        )}
+        <div className="mb-2">
+          <span className="mb-0.5">Mã túi máu:</span>
+          <Input
+            type="text"
+            value={bloodBag ? bloodBag.bagNumber : ""}
+            disabled
+          />
+        </div>
+        <div className="mb-2">
+          <span className="mb-0.5">Loại máu:</span>
+          <Input
+            type="text"
+            value={bloodBag ? bloodTypes[bloodBag.bloodType] : ""}
+            disabled
+          />
+        </div>
+        <div className="mb-2">
+          <span className="mb-0.5">Số lượng:</span>
+          <Input
+            type="text"
+            value={bloodBag ? bloodBag.quantity : ""}
+            disabled
+          />
+        </div>
+        <div className="mb-2">
+          <span className="mb-0.5">Ngày thu thập:</span>
+          <Input
+            type="text"
+            value={bloodBag ? dayjs(bloodBag.collectionDate).format("DD-MM-YYYY") : ""}
+            disabled
+          />
+        </div>
       </Modal>
       <Modal
         title="Lý do từ chối"
@@ -535,17 +632,17 @@ const AcceptBloodDropPage = () => {
               width: 120,
             },
             {
-              title: 'Ngày hiến',
-              dataIndex: 'donationEndDate',
-              key: 'donationEndDate',
+              title: 'Ngày thu thập',
+              dataIndex: 'collectionDate',
+              key: 'collectionDate',
               align: 'center',
               width: 110,
               render: (date) => dayjs(date).format('DD-MM-YYYY'),
             },
             {
-              title: 'Số điện thoại',
-              dataIndex: 'phoneNumber',
-              key: 'phoneNumber',
+              title: 'Mã túi',
+              dataIndex: 'bagNumber',
+              key: 'bagNumber',
               align: 'center',
               width: 130,
             },
@@ -559,9 +656,8 @@ const AcceptBloodDropPage = () => {
                 let color;
                 let text = status;
                 switch (status) {
-                  case 'Đang Chờ': color = 'text-orange-500'; break;
-                  case 'Chấp Nhận': color = 'text-blue-500'; break;
-                  case 'Từ Chối': color = 'text-red-500'; break;
+                  case 'Đã Dùng': color = 'text-blue-500'; break;
+                  case 'Hết Hạn': color = 'text-red-500'; break;
                   default: color = 'text-green-500';
                 }
                 return (
@@ -584,6 +680,7 @@ const AcceptBloodDropPage = () => {
                       variant="dashed" 
                       color="green" 
                       size="small"
+                      onClick={() => handleExport(record)}
                     >
                       <SearchOutlined />
                     </Button>
