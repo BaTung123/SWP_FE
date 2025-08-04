@@ -513,7 +513,6 @@ const ReceiverPage = () => {
         open={isHealthCheckModalOpen}
         onCancel={() => setIsHealthCheckModalOpen(false)}
         width={600}
-        destroyOnClose={true}
         footer={null}
       >
         {healthCheckData && (
@@ -532,7 +531,7 @@ const ReceiverPage = () => {
                 <label className="block font-semibold mb-1">Nhóm máu:</label>
                 <input
                   type="text"
-                  value={healthCheckData.bloodType}
+                  value={bloodTypes[healthCheckData.bloodType]}
                   className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50"
                   disabled
                 />
@@ -547,7 +546,7 @@ const ReceiverPage = () => {
                   onChange={e => handleHealthCheckChange('bloodPressure', e.target.value)}
                   className="w-full border border-gray-300 rounded px-3 py-2"
                   placeholder="VD: 120/80"
-                  required
+                  disabled
                 />
               </div>
               <div>
@@ -559,7 +558,7 @@ const ReceiverPage = () => {
                   onChange={e => handleHealthCheckChange('heartRate', e.target.value)}
                   className="w-full border border-gray-300 rounded px-3 py-2"
                   placeholder="VD: 72"
-                  required
+                  disabled
                   onKeyDown={e => { if (e.key === '-' || e.key === 'e') e.preventDefault(); }}
                 />
               </div>
@@ -575,7 +574,7 @@ const ReceiverPage = () => {
                   onChange={e => handleHealthCheckChange('temperature', e.target.value)}
                   className="w-full border border-gray-300 rounded px-3 py-2"
                   placeholder="VD: 36.5"
-                  required
+                  disabled
                   onKeyDown={e => { if (e.key === '-' || e.key === 'e') e.preventDefault(); }}
                 />
               </div>
@@ -589,7 +588,7 @@ const ReceiverPage = () => {
                   onChange={e => handleHealthCheckChange('hemoglobin', e.target.value)}
                   className="w-full border border-gray-300 rounded px-3 py-2"
                   placeholder="VD: 13.5"
-                  required
+                  disabled
                   onKeyDown={e => { if (e.key === '-' || e.key === 'e') e.preventDefault(); }}
                 />
               </div>
@@ -605,7 +604,7 @@ const ReceiverPage = () => {
                   onChange={e => handleHealthCheckChange('weight', e.target.value)}
                   className="w-full border border-gray-300 rounded px-3 py-2"
                   placeholder="VD: 65"
-                  required
+                  disabled
                   onKeyDown={e => { if (e.key === '-' || e.key === 'e') e.preventDefault(); }}
                 />
               </div>
@@ -618,7 +617,7 @@ const ReceiverPage = () => {
                   onChange={e => handleHealthCheckChange('height', e.target.value)}
                   className="w-full border border-gray-300 rounded px-3 py-2"
                   placeholder="VD: 170"
-                  required
+                  disabled
                   onKeyDown={e => { if (e.key === '-' || e.key === 'e') e.preventDefault(); }}
                 />
               </div>
@@ -628,6 +627,7 @@ const ReceiverPage = () => {
               <Select
                 className="w-full"
                 value={healthCheckData.healthCheckResult}
+                disabled
                 onChange={value => handleHealthCheckChange('healthCheckResult', value)}
                 options={[
                   { value: 'Đạt', label: 'Đạt - Có thể hiến máu' },
@@ -667,6 +667,7 @@ const ReceiverPage = () => {
                 onChange={e => handleHealthCheckChange('note', e.target.value)}
                 placeholder="Nhập ghi chú về tình trạng sức khỏe..."
                 rows={3}
+                disabled
               />
             </div>
             {healthCheckError && (

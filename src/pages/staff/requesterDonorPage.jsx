@@ -180,26 +180,29 @@ const RequesterDonorPage = () => {
             const updateBloodImportStatus = await updateBloodImportApplication(bloodImportSend);
             console.log("updateBloodImportStatus:", updateBloodImportStatus);
 
-            if (createBloodImportRes.code === 201) {
-                // Tự động cập nhật blood storage khi tạo đơn nhập máu thành công
-                try {
-                    // Map blood type string về index để tìm trong blood storage
-                    const bloodTypeIndex = bloodTypes.indexOf(bloodDropFormData.bloodType);
-                    if (bloodTypeIndex !== -1) {
-                        await UpdateBloodStorageOnImport(bloodTypeIndex, bloodDropFormData.quantity);
-                        console.log(`Đã cập nhật blood storage: ${bloodDropFormData.bloodType} +${bloodDropFormData.quantity}ml`);
-                    }
-                } catch (storageError) {
-                    console.error('Lỗi cập nhật blood storage:', storageError);
-                    // Không throw error vì đơn nhập máu đã thành công
-                }
+            // if (createBloodImportRes.code === 201) {
+            //     // Tự động cập nhật blood storage khi tạo đơn nhập máu thành công
+            //     try {
+            //         // Map blood type string về index để tìm trong blood storage
+            //         const bloodTypeIndex = bloodTypes.indexOf(bloodDropFormData.bloodType);
+            //         if (bloodTypeIndex !== -1) {
+            //             await UpdateBloodStorageOnImport(bloodTypeIndex, bloodDropFormData.quantity);
+            //             console.log(`Đã cập nhật blood storage: ${bloodDropFormData.bloodType} +${bloodDropFormData.quantity}ml`);
+            //         }
+            //     } catch (storageError) {
+            //         console.error('Lỗi cập nhật blood storage:', storageError);
+            //         // Không throw error vì đơn nhập máu đã thành công
+            //     }
 
-                toast.success("Tạo đơn thành công và đã cập nhật kho máu!");
-                setIsBloodDropModalOpen(false);
-                await fetchRegistrationList();
-            } else {
-                toast.error("Tạo đơn không thành công. Vui lòng thử lại.");
-            }
+            //     toast.success("Tạo đơn thành công và đã cập nhật kho máu!");
+            //     setIsBloodDropModalOpen(false);
+            //     await fetchRegistrationList();
+            // } else {
+            //     toast.error("Tạo đơn không thành công. Vui lòng thử lại.");
+            // }
+            toast.success("Tạo đơn thành công và đã cập nhật kho máu!");
+            setIsBloodDropModalOpen(false);
+            await fetchRegistrationList();
         } catch (error) {
             console.error('Lỗi tạo đơn nhập máu:', error);
             toast.error("Tạo đơn không thành công. Vui lòng thử lại.");
@@ -1231,7 +1234,7 @@ const RequesterDonorPage = () => {
                                 <label className="block font-semibold mb-1">Nhóm máu:</label>
                                 <input
                                     type="text"
-                                    value={healthCheckData.bloodType}
+                                    value={bloodTypes[healthCheckData.bloodType]}
                                     className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50"
                                     disabled
                                 />

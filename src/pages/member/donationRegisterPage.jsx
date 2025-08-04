@@ -34,7 +34,7 @@ const BLOOD_TYPE_MAP = {
 };
 
 const bloodTypes = [
-  'O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+', 'Chưa biết'
+  "O-", "O+", "A-", "A+", "B-", "B+", "AB-", "AB+", "Chưa biết"
 ];
 
 const DONATION_TYPE_MAP = {
@@ -236,7 +236,7 @@ const DonationRegisterPage = () => {
          fullName: formData.fullName,
          dob: formData.birthDate,
          gender: formData.gender,
-         bloodType: bloodTypes[formData.bloodType],
+         bloodType: bloodTypes.indexOf(formData.bloodType),
          bloodTransferType: DONATION_TYPE_MAP[formData.type],
          quantity: Number(formData.quantity),
          note: formData.note || "Hiến máu lần đầu",
